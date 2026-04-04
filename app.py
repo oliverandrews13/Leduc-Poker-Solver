@@ -1,50 +1,146 @@
 import streamlit as st
 import numpy as np
 
-# Import your CFR solver
 from cfr import LeducCFR
+from ui_bridge import SolverInterface
 
-st.set_page_config(page_title="Leduc Poker CFR Solver", layout="wide")
+# =========================
+# LOAD SOLVER
+# =========================
 
-st.title("🃏 Leduc Poker CFR Solver")
-st.write("Train a Counterfactual Regret Minimization (CFR) solver and inspect learned strategies.")
+@st.cache_resource
+def load_solver():
+    solver = LeducCFR()
+    solver.train(iterations=500)
+    return SolverInterface(solver)
 
-# Sidebar controls
-st.sidebar.header("Training Settings")
-iterations = st.sidebar.slider("Iterations", min_value=100, max_value=5000, value=1000, step=100)
-log_every = st.sidebar.slider("Log Frequency", min_value=10, max_value=1000, value=100, step=10)
+interface = load_solver()
 
-# Run button
-if st.button("🚀 Run CFR Training"):
-    with st.spinner("Training CFR solver..."):
-        solver = LeducCFR()
-        solver.train(iterations=iterations, log_every=log_every)
+# =========================
+# STATE MODEL
+# =========================
 
-    st.success("Training complete!")
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-    # Display number of info sets
-    st.subheader("Summary")
-    st.write(f"Total info sets discovered: {len(solver.info_sets)}")
+if "board" not in st.session_state:
+    st.session_state.board = "-"
 
-    # Display strategies
-    st.subheader("Learned Strategies")
+# =========================
+# SIDEBAR (SETUP)
+# =========================
 
-    for key in sorted(solver.info_sets.keys()):
-        iset = solver.info_sets[key]
-        avg_strategy = iset.get_average_strategy()
+st.sidebar.header("Game Setup")
 
-        with st.expander(f"Info Set: {key}"):
-            actions = [f"Action {i}" for i in range(len(avg_strategy))]
-            strategy_dict = {actions[i]: float(avg_strategy[i]) for i in range(len(avg_strategy))}
-            st.write(strategy_dict)
+player = st.sidebar.selectbox("Player to Act", [0, 1])
+private_card = st.sidebar.selectbox("Your Card", ["J", "Q", "K"])
 
-    st.subheader("Regret Diagnostics")
-    st.write("Regret sums (sample):")
+if st.sidebar.button("Reset Hand"):
+    st.session_state.history = []
+    st.session_state.board = "-"
 
-    sample_keys = list(solver.info_sets.keys())[:5]
-    for key in sample_keys:
-        iset = solver.info_sets[key]
-        st.write(f"{key}: {iset.regret_sum}")
+board_choice = st.sidebar.selectbox("Board Card (optional)", ["-", "J", "Q", "K"])
 
-else:
-    st.info("Adjust settings and click 'Run CFR Training' to start.")
+if st.sidebar.button("Set Board"):
+    st.session_state.board = board_choice
+
+# =========================
+# BUILD HISTORY STRING
+# =========================
+
+history_str = "".join(st.session_state.history)
+
+# =========================
+# QUERY SOLVER
+# =========================
+
+result = interface.query(
+    player,
+    private_card,
+    st.session_state.board,
+    history_str
+)
+
+# =========================
+# HEADER
+# =========================
+
+st.title("🧠 Leduc GTO Solver")
+
+# =========================
+# BREADCRUMB NAVIGATION
+# =========================
+
+st.subheader("Line")
+
+cols = st.columns(len(st.session_state.history) + 1)
+
+for i in range(len(st.session_state.history)):
+    with cols[i]:
+        if st.button(st.session_state.history[i], key=f"step_{i}"):
+            st.session_state.history = st.session_state.history[:i]
+            st.rerun()
+
+with cols[-1]:
+    st.write("⟶ Current")
+
+st.write("---")
+
+# =========================
+# CURRENT STATE DISPLAY
+# =========================
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Player", player)
+col2.metric("Card", private_card)
+col3.metric("Board", st.session_state.board)
+
+st.write("**History:**", history_str if history_str else "—")
+
+# =========================
+# STRATEGY + EV DISPLAY
+# =========================
+
+if result:
+    actions = result["actions"]
+    strategy = result["strategy"]
+
+    st.subheader("Strategy")
+
+    for a, p in zip(actions, strategy):
+        label = {"c": "Check/Call", "b": "Bet/Raise", "f": "Fold"}.get(a, a)
+        st.write(f"**{label}** → {p:.2f}")
+
+    # Highlight best action
+    best_idx = int(np.argmax(strategy))
+    best_action = actions[best_idx]
+
+    st.success(f"Recommended: {best_action}")
+
+# =========================
+# ACTION BUTTONS
+# =========================
+
+st.subheader("Actions")
+
+if result:
+    actions = result["actions"]
+
+    cols = st.columns(len(actions))
+
+    for i, a in enumerate(actions):
+        label = {"c": "Check/Call", "b": "Bet/Raise", "f": "Fold"}.get(a, a)
+
+        with cols[i]:
+            if st.button(label, key=f"action_{a}_{i}"):
+                st.session_state.history.append(a)
+                st.rerun()
+
+# =========================
+# DEBUG
+# =========================
+
+with st.expander("Debug"):
+    st.write("History List:", st.session_state.history)
+    st.write("History String:", history_str)
