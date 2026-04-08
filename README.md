@@ -1,4 +1,4 @@
-This project is a Python-based implementation of Counterfactual Regret Minimization (CFR) applied to Leduc Hold’em, a simplified poker variant commonly used for testing game-theoretic algorithms.
+This project is a Python-based implementation of Counterfactual Regret Minimization (CFR) applied to Leduc Hold’em, a simplified poker variant commonly used to test game-theoretic algorithms.
 
 The solver models imperfect-information gameplay and iteratively approximates a Nash equilibrium strategy by minimizing regret over repeated self-play. It handles chance events (card dealing), hidden information, and sequential decision-making, making it a useful framework for studying equilibrium computation in zero-sum games.
 
