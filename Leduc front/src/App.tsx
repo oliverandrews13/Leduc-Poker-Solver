@@ -4,7 +4,7 @@ export function Sidebar()
 {
   return (
     
-    <div className="fixed inset left-0 top-0 w-[20%]  h-full bg-red-400 ">
+    <div className="fixed inset left-0 top-0 w-[20%] min-w-54 h-full bg-red-400 ">
       <div className="flex flex-col justify-self-center text-2xl pt-[15%]">Leduc Poker Solver </div>
       <div className="flex flex-col justify-self-center text-lg pt-[30%] w-[75%]">
           <div className="text-aling-left text-bold font-bold pt-5"> Player 0 Card</div>

@@ -6,9 +6,13 @@ const Dropdown = ({playerNum}) => {
         await fetch("/SetCard",
         {
             method:"POST",
-            body: JSON.stringify({player:playerNum,cardID:card})
+            headers: {
+                        "Content-Type": "application/json"
+                    },
+            body: JSON.stringify({ player: "" + playerNum, cardID: card })
         }
         );
+
     }
     return (
         <select onChange={(e) => changeCard(e.target.value)} className="rounded-lg bg-red-200 text-black">
